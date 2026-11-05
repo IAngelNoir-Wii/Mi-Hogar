@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mi hogar</title>
+<style>
+:root{--bg:#faf8f4;--card:#fff;--tx:#232320;--mu:#6d6a62;--ac:#2f6f4f;--ac2:#e4f0e9;--bd:#e3dfd6;--wa:#b4532a;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#171815;--card:#222320;--tx:#ecebe5;--mu:#9b988e;--ac:#6fbf94;--ac2:#243229;--bd:#363730;--wa:#e08a5e;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#171815;--card:#222320;--tx:#ecebe5;--mu:#9b988e;--ac:#6fbf94;--ac2:#243229;--bd:#363730;--wa:#e08a5e;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:980px;margin:0 auto;padding:16px}
+h1{font-size:22px;margin:0 0 2px}h2{font-size:16px;margin:18px 0 8px}
+.sub{color:var(--mu);margin:0 0 12px}
+nav{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0}
+nav button,.btn{border:1px solid var(--bd);background:var(--card);color:var(--tx);padding:8px 14px;border-radius:20px;cursor:pointer;font:inherit}
+nav button.on,.btn.pri{background:var(--ac);color:#fff;border-color:var(--ac)}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px;margin-bottom:12px}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%}
+th,td{padding:6px;text-align:left;border-bottom:1px solid var(--bd);vertical-align:top}
+th{color:var(--mu);font-weight:600;font-size:13px}
+select,input,textarea{font:inherit;color:var(--tx);background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:6px 8px;max-width:100%}
+td select{width:100%;min-width:130px}td select.p{min-width:0;width:auto;margin-top:4px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+.tag{display:inline-block;background:var(--ac2);color:var(--ac);padding:1px 8px;border-radius:10px;font-size:12px}
+.low{color:var(--wa);font-weight:600}
+li{list-style:none}ul{padding:0;margin:0}
+.item{display:flex;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid var(--bd)}
+.item.done span{text-decoration:line-through;color:var(--mu)}
+.item span{flex:1}.x{background:none;border:0;color:var(--mu);cursor:pointer;font-size:18px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+.big{font-size:24px;font-weight:700}
+</style></head><body><main>
+<h1>🏠 Mi hogar</h1>
+<p class="sub">Menú, compras, inventario y gastos en un solo lugar.</p>
+<nav id="nav"></nav><div id="v"></div>
+</main>
+<script>
+const CATS=["Fruver","Despensa","Aseo personal","Aseo cocina","Mascota","Hogar"];
+const MEALS=["Desayuno","Almuerzo","Cena"],DAYS=["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"];
+const R=[
+{n:"Huevos con arepa",m:0,i:[["Huevos",2,"u","Despensa"],["Arepas",1,"u","Despensa"]]},
+{n:"Avena con banano",m:0,i:[["Avena",40,"g","Despensa"],["Leche",200,"ml","Despensa"],["Banano",1,"u","Fruver"]]},
+{n:"Tostadas con aguacate",m:0,i:[["Pan",2,"reb","Despensa"],["Aguacate",0.5,"u","Fruver"],["Huevos",1,"u","Despensa"]]},
+{n:"Arroz con pollo",m:1,i:[["Arroz",90,"g","Despensa"],["Pollo",150,"g","Despensa"],["Zanahoria",0.5,"u","Fruver"],["Cebolla",0.25,"u","Fruver"]]},
+{n:"Pasta con carne",m:1,i:[["Pasta",90,"g","Despensa"],["Carne molida",120,"g","Despensa"],["Tomate",1,"u","Fruver"],["Cebolla",0.25,"u","Fruver"]]},
+{n:"Lentejas",m:1,i:[["Lentejas",80,"g","Despensa"],["Zanahoria",0.5,"u","Fruver"],["Cebolla",0.25,"u","Fruver"],["Papa",1,"u","Fruver"]]},
+{n:"Ensalada con atún",m:1,i:[["Atún",0.5,"lata","Despensa"],["Lechuga",0.25,"u","Fruver"],["Tomate",0.5,"u","Fruver"],["Aguacate",0.25,"u","Fruver"]]},
+{n:"Sándwich de jamón y queso",m:2,i:[["Pan",2,"reb","Despensa"],["Jamón",2,"lon","Despensa"],["Queso",2,"lon","Despensa"],["Tomate",0.25,"u","Fruver"]]},
+{n:"Sopa de verduras",m:2,i:[["Papa",1,"u","Fruver"],["Zanahoria",0.5,"u","Fruver"],["Cebolla",0.25,"u","Fruver"],["Caldo",0.25,"cubo","Despensa"]]},
+{n:"Quesadillas",m:2,i:[["Tortillas",2,"u","Despensa"],["Queso",60,"g","Despensa"]]}];
+let S={plan:{},mine:[],inv:[],bills:[],chk:{},weeks:2,def:2,tab:"menu"};
+try{const s=localStorage.getItem("hogar1");if(s)S=Object.assign(S,JSON.parse(s))}catch(e){}
+const save=()=>{try{localStorage.setItem("hogar1",JSON.stringify(S))}catch(e){}};
+const $=s=>document.querySelector(s),esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const all=()=>R.concat(S.mine),fmt=n=>Math.ceil(n*10-1e-9)/10,money=n=>"$"+Math.round(n).toLocaleString("es-CO");
+const TABS={menu:"🍽️ Menú",shop:"🛒 Compras",inv:"📦 Inventario",bills:"💳 Gastos fijos"};
+function nav(){$("#nav").innerHTML=Object.entries(TABS).map(([k,v])=>`<button data-t="${k}" class="${S.tab==k?"on":""}">${v}</button>`).join("")}
+
+function menu(){
+ let h=`<div class="card"><div class="row"><b>Personas por defecto:</b><select data-def>${[1,2,3].map(n=>`<option ${S.def==n?"selected":""}>${n}</option>`).join("")}</select><span class="sub" style="margin:0">Puedes cambiarlo en cada comida (o poner 0 si no cocinas).</span></div>
+ <div class="scroll"><table><tr><th></th>${MEALS.map(m=>`<th>${m}</th>`).join("")}</tr>`;
+ DAYS.forEach((d,di)=>{h+=`<tr><td><b>${d}</b></td>`;
+  MEALS.forEach((m,mi)=>{const k=di+"-"+mi,c=S.plan[k]||{r:"",p:S.def};
+   h+=`<td><select data-cell="${k}"><option value="">—</option>${all().filter(r=>r.m==mi).map(r=>`<option ${c.r==r.n?"selected":""}>${esc(r.n)}</option>`).join("")}</select>
+   <select class="p" data-pp="${k}">${[0,1,2,3].map(n=>`<option value="${n}" ${c.p==n?"selected":""}>${n} 👤</option>`).join("")}</select></td>`});
+  h+="</tr>"});
+ h+=`</table></div></div>
+ <div class="card"><b>➕ Agregar mi propia receta</b><div class="row" style="margin-top:8px">
+ <input id="rn" placeholder="Nombre del plato"><select id="rm">${MEALS.map((m,i)=>`<option value="${i}">${m}</option>`).join("")}</select></div>
+ <textarea id="ri" rows="4" style="width:100%" placeholder="Un ingrediente por línea: nombre; cantidad por persona; unidad; categoría&#10;Ej: Tomate; 1; u; Fruver&#10;Ej: Arroz; 90; g; Despensa"></textarea>
+ <div class="row" style="margin-top:8px"><button class="btn pri" data-addr>Guardar receta</button></div></div>`;
+ return h}
+
+function calc(){
+ const need={};
+ Object.values(S.plan).forEach(c=>{const r=all().find(x=>x.n==c.r);if(!r||!c.p)return;
+  r.i.forEach(([n,q,u,cat])=>{const k=n.toLowerCase();need[k]=need[k]||{name:n,q:0,u,cat};need[k].q+=q*c.p})});
+ const out={};
+ Object.values(need).forEach(x=>{if(x.cat!="Fruver")x.q*=S.weeks});
+ const keys=new Set(Object.keys(need));
+ S.inv.forEach(it=>{const k=it.name.toLowerCase();keys.add(k);
+  if(!need[k])need[k]={name:it.name,q:0,u:it.unit,cat:it.cat}; need[k].cat=it.cat||need[k].cat});
+ keys.forEach(k=>{const x=need[k],it=S.inv.find(i=>i.name.toLowerCase()==k);
+  const buy=it?x.q+(+it.min||0)-(+it.stock||0):x.q;
+  if(buy>0.001){(out[x.cat]=out[x.cat]||[]).push({name:x.name,q:fmt(buy),u:x.u})}});
+ return out}
+
+function shop(){
+ const o=calc(),wk=o.Fruver||[],rest=CATS.filter(c=>c!="Fruver"&&o[c]);
+ const li=(c,a)=>a.sort((x,y)=>x.name.localeCompare(y.name)).map(x=>{const k=c+x.name;return `<li class="item ${S.chk[k]?"done":""}"><input type="checkbox" data-ck="${esc(k)}" ${S.chk[k]?"checked":""}><span>${esc(x.name)}</span><b>${x.q} ${esc(x.u||"")}</b></li>`}).join("");
+ let h=`<div class="card"><div class="row"><b>Despensa cubre:</b><select data-wk>${[1,2].map(n=>`<option value="${n}" ${S.weeks==n?"selected":""}>${n==1?"1 semana":"2 semanas (quincenal)"}</option>`).join("")}</select>
+ <button class="btn" data-clr>Limpiar marcados</button></div>
+ <p class="sub" style="margin:0">Se calcula con tu menú, descontando lo que ya tienes en el inventario y reponiendo hasta el mínimo que definas.</p></div>
+ <div class="grid"><div class="card"><h2 style="margin-top:0">🥬 Semanal · frutas y verduras</h2><ul>${wk.length?li("Fruver",wk):'<li class="sub">Nada por comprar.</li>'}</ul></div>
+ <div class="card"><h2 style="margin-top:0">🧺 Quincenal · todo lo demás</h2>${rest.length?rest.map(c=>`<div class="tag" style="margin-top:8px">${c}</div><ul>${li(c,o[c])}</ul>`).join(""):'<p class="sub">Nada por comprar.</p>'}</div></div>`;
+ return h}
+
+function inv(){
+ let h=`<div class="card"><b>➕ Agregar artículo</b><div class="row" style="margin-top:8px">
+ <input id="in" placeholder="Nombre (ej. Arroz)"><select id="ic">${CATS.map(c=>`<option>${c}</option>`).join("")}</select>
+ <input id="is" type="number" min="0" step="any" placeholder="Tengo" style="width:80px"><input id="im" type="number" min="0" step="any" placeholder="Mínimo" style="width:80px"><input id="iu" placeholder="Unidad" style="width:80px">
+ <button class="btn pri" data-addi>Agregar</button></div>
+ <p class="sub" style="margin:0">Si el nombre coincide con un ingrediente del menú, se descuenta automáticamente.</p></div>`;
+ CATS.forEach(c=>{const a=S.inv.map((x,i)=>[x,i]).filter(([x])=>x.cat==c);if(!a.length)return;
+  h+=`<div class="card"><b>${c}</b><div class="scroll"><table>${a.map(([x,i])=>`<tr><td>${esc(x.name)} ${(+x.stock)<(+x.min)?'<span class="low">· bajo</span>':""}</td>
+  <td><input type="number" step="any" value="${x.stock}" data-st="${i}" style="width:80px"> ${esc(x.unit||"")}</td>
+  <td class="sub">mín. <input type="number" step="any" value="${x.min}" data-mn="${i}" style="width:70px"></td><td><button class="x" data-di="${i}">×</button></td></tr>`).join("")}</table></div></div>`});
+ return h}
+
+function bills(){
+ const tot=S.bills.reduce((s,b)=>s+(+b.amt||0),0);
+ let h=`<div class="card"><div class="sub" style="margin:0">Total mensual</div><div class="big">${money(tot)}</div></div>
+ <div class="card"><b>➕ Agregar gasto</b><div class="row" style="margin-top:8px"><input id="bn" placeholder="Ej. Internet, Netflix"><select id="bt"><option>Servicio</option><option>Teléfono</option><option>Suscripción</option><option>Plan adicional</option><option>Otro</option></select>
+ <input id="ba" type="number" min="0" placeholder="Valor mensual" style="width:130px"><input id="bd" type="number" min="1" max="31" placeholder="Día pago" style="width:90px"><button class="btn pri" data-addb>Agregar</button></div></div>
+ <div class="card"><div class="scroll"><table><tr><th>Gasto</th><th>Tipo</th><th>Día</th><th>Valor</th><th></th></tr>${S.bills.slice().map((b,i)=>[b,i]).sort((x,y)=>(+x[0].day||99)-(+y[0].day||99)).map(([b,i])=>`<tr><td>${esc(b.name)}</td><td><span class="tag">${b.type}</span></td><td>${b.day||"—"}</td><td>${money(b.amt||0)}</td><td><button class="x" data-db="${i}">×</button></td></tr>`).join("")||'<tr><td class="sub">Aún no hay gastos.</td></tr>'}</table></div></div>`;
+ return h}
+
+function render(){nav();$("#v").innerHTML={menu,shop,inv,bills}[S.tab]();save()}
+document.addEventListener("click",e=>{const t=e.target,d=t.dataset;
+ if(d.t){S.tab=d.t;return render()}
+ if(d.clr!==undefined){S.chk={};return render()}
+ if(d.di){S.inv.splice(+d.di,1);return render()}
+ if(d.db){S.bills.splice(+d.db,1);return render()}
+ if(d.addi!==undefined){const n=$("#in").value.trim();if(!n)return;S.inv.push({name:n,cat:$("#ic").value,stock:+$("#is").value||0,min:+$("#im").value||0,unit:$("#iu").value.trim()});return render()}
+ if(d.addb!==undefined){const n=$("#bn").value.trim();if(!n)return;S.bills.push({name:n,type:$("#bt").value,amt:+$("#ba").value||0,day:+$("#bd").value||0});return render()}
+ if(d.addr!==undefined){const n=$("#rn").value.trim(),i=$("#ri").value.split("\n").map(l=>l.split(";").map(s=>s.trim())).filter(a=>a[0]).map(a=>[a[0],parseFloat(a[1])||1,a[2]||"u",CATS.includes(a[3])?a[3]:"Despensa"]);
+  if(!n||!i.length)return alert("Escribe el nombre y al menos un ingrediente.");S.mine.push({n,m:+$("#rm").value,i});return render()}});
+document.addEventListener("change",e=>{const t=e.target,d=t.dataset;
+ if(d.def!==undefined){S.def=+t.value;return render()}
+ if(d.wk!==undefined){S.weeks=+t.value;return render()}
+ if(d.cell){const c=S.plan[d.cell]=S.plan[d.cell]||{r:"",p:S.def};c.r=t.value;return render()}
+ if(d.pp){const c=S.plan[d.pp]=S.plan[d.pp]||{r:"",p:S.def};c.p=+t.value;return render()}
+ if(d.ck){S.chk[d.ck]=t.checked;return render()}
+ if(d.st){S.inv[+d.st].stock=+t.value;return render()}
+ if(d.mn){S.inv[+d.mn].min=+t.value;return render()}});
+render();
+</script></body></html>
