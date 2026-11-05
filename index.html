@@ -52,8 +52,8 @@ const R=[
 {n:"Quesadillas",m:2,i:[["Tortillas",2,"u","Despensa"],["Queso",60,"g","Despensa"]]}];
 let S={plan:{},mine:[],inv:[],bills:[],chk:{},weeks:2,def:2,tab:"menu"};
 try{const s=localStorage.getItem("hogar1");if(s)S=Object.assign(S,JSON.parse(s))}catch(e){}
-const save=()=>{try{localStorage.setItem("hogar1",JSON.stringify(S))}catch(e){}if(window.cloud)window.cloud.save(JSON.stringify(S))};
-window.hogar={apply:d=>{Object.assign(S,d);render()},raw:()=>JSON.stringify(S)};
+const save=()=>{try{localStorage.setItem("hogar1",JSON.stringify(S))}catch(e){}if(window.cloud)window.cloud.save()};
+window.hogar={apply:d=>{delete d.tab;Object.assign(S,d);render()},raw:()=>JSON.stringify(Object.assign({},S,{tab:undefined}))};
 const $=s=>document.querySelector(s),esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const all=()=>R.concat(S.mine),fmt=n=>Math.ceil(n*10-1e-9)/10,money=n=>"$"+Math.round(n).toLocaleString("es-CO");
 const TABS={menu:"🍽️ Menú",shop:"🛒 Compras",inv:"📦 Inventario",bills:"💳 Gastos fijos"};
@@ -140,22 +140,28 @@ render();
 </script><script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import{getAuth,GoogleAuthProvider,signInWithPopup,signOut,onAuthStateChanged}from"https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
-import{getFirestore,doc,getDoc,setDoc}from"https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+import{getFirestore,doc,onSnapshot,setDoc}from"https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 const app=initializeApp({apiKey:"AIzaSyBdw24P5biQh5kG4PCTJyY-1cZZ7jG80q0",authDomain:"mi-hogar-31c27.firebaseapp.com",projectId:"mi-hogar-31c27",storageBucket:"mi-hogar-31c27.firebasestorage.app",messagingSenderId:"1067877025224",appId:"1:1067877025224:web:d289ae14beba492aaa2cfd"});
 const auth=getAuth(app),db=getFirestore(app),box=document.getElementById("auth");
 let timer;
 const login=()=>signInWithPopup(auth,new GoogleAuthProvider()).catch(e=>alert("No se pudo iniciar sesión: "+e.message));
 box.innerHTML='<button class="btn pri" id="li">Iniciar sesión con Google</button><span class="sub" style="margin:0">Para guardar tus datos en la nube.</span>';
 box.onclick=e=>{if(e.target.id=="li")login();if(e.target.id=="lo")signOut(auth)};
-onAuthStateChanged(auth,async u=>{
- if(!u){window.cloud=null;box.innerHTML='<button class="btn pri" id="li">Iniciar sesión con Google</button><span class="sub" style="margin:0">Para guardar tus datos en la nube.</span>';return}
- const ref=doc(db,"hogar",u.uid);
- try{const snap=await getDoc(ref);
-  if(snap.exists())window.hogar.apply(JSON.parse(snap.data().json));
-  else await setDoc(ref,{json:window.hogar.raw(),t:Date.now()});
-  window.cloud={save:j=>{clearTimeout(timer);timer=setTimeout(()=>setDoc(ref,{json:j,t:Date.now()}).catch(console.error),600)}};
-  box.innerHTML='<span>☁️ '+(u.displayName||u.email)+'</span><button class="btn" id="lo">Salir</button>';
- }catch(e){box.innerHTML='<span class="low">Error con la nube: '+e.message+'</span>'}
+let unsub;
+const out='<button class="btn pri" id="li">Iniciar sesión con Google</button><span class="sub" style="margin:0">Para guardar y compartir tus datos.</span>';
+onAuthStateChanged(auth,u=>{
+ if(unsub){unsub();unsub=null}
+ if(!u){window.cloud=null;box.innerHTML=out;return}
+ const ref=doc(db,"hogar","casa");
+ const put=()=>setDoc(ref,{json:window.hogar.raw(),t:Date.now(),by:u.email}).catch(e=>box.innerHTML='<span class="low">Error al guardar: '+e.message+'</span>');
+ box.innerHTML='<span>☁️ '+(u.displayName||u.email)+' · casa compartida</span><button class="btn" id="lo">Salir</button>';
+ window.cloud={save:()=>{clearTimeout(timer);timer=setTimeout(put,600)}};
+ unsub=onSnapshot(ref,snap=>{
+  if(!snap.exists()){put();return}
+  if(snap.metadata.hasPendingWrites)return;
+  const j=snap.data().json;
+  if(j!==window.hogar.raw())window.hogar.apply(JSON.parse(j));
+ },e=>{window.cloud=null;box.innerHTML='<span class="low">Error con la nube: '+e.message+'</span>'});
 });
 </script>
 </body></html>
