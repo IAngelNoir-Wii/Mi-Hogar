@@ -52,11 +52,12 @@ const R=[
 {n:"Quesadillas",m:2,i:[["Tortillas",2,"u","Despensa"],["Queso",60,"g","Despensa"]]}];
 let S={plan:{},mine:[],inv:[],bills:[],chk:{},weeks:2,def:2,tab:"menu"};
 try{const s=localStorage.getItem("hogar1");if(s)S=Object.assign(S,JSON.parse(s))}catch(e){}
+if(!S.recipes){S.recipes=JSON.parse(JSON.stringify(R)).concat(S.mine||[]);S.mine=[]}
 const save=()=>{try{localStorage.setItem("hogar1",JSON.stringify(S))}catch(e){}if(window.cloud)window.cloud.save()};
 window.hogar={apply:d=>{delete d.tab;Object.assign(S,d);render()},raw:()=>JSON.stringify(Object.assign({},S,{tab:undefined}))};
 const $=s=>document.querySelector(s),esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const all=()=>R.concat(S.mine),fmt=n=>Math.ceil(n*10-1e-9)/10,money=n=>"$"+Math.round(n).toLocaleString("es-CO");
-const TABS={menu:"🍽️ Menú",shop:"🛒 Compras",inv:"📦 Inventario",bills:"💳 Gastos fijos"};
+const all=()=>S.recipes,fmt=n=>Math.ceil(n*10-1e-9)/10,money=n=>"$"+Math.round(n).toLocaleString("es-CO");
+const TABS={menu:"🍽️ Menú",rec:"📖 Recetas",shop:"🛒 Compras",inv:"📦 Inventario",bills:"💳 Gastos fijos"};
 function nav(){$("#nav").innerHTML=Object.entries(TABS).map(([k,v])=>`<button data-t="${k}" class="${S.tab==k?"on":""}">${v}</button>`).join("")}
 
 function menu(){
@@ -77,7 +78,7 @@ function menu(){
 function calc(){
  const need={};
  Object.values(S.plan).forEach(c=>{const r=all().find(x=>x.n==c.r);if(!r||!c.p)return;
-  r.i.forEach(([n,q,u,cat])=>{const k=n.toLowerCase();need[k]=need[k]||{name:n,q:0,u,cat};need[k].q+=q*c.p})});
+  r.i.forEach(([n,q,u,cat])=>{if(!n.trim())return;const k=n.toLowerCase();need[k]=need[k]||{name:n,q:0,u,cat};need[k].q+=q*c.p})});
  const out={};
  Object.values(need).forEach(x=>{if(x.cat!="Fruver")x.q*=S.weeks});
  const keys=new Set(Object.keys(need));
@@ -118,8 +119,19 @@ function bills(){
  <div class="card"><div class="scroll"><table><tr><th>Gasto</th><th>Tipo</th><th>Día</th><th>Valor</th><th></th></tr>${S.bills.slice().map((b,i)=>[b,i]).sort((x,y)=>(+x[0].day||99)-(+y[0].day||99)).map(([b,i])=>`<tr><td>${esc(b.name)}</td><td><span class="tag">${b.type}</span></td><td>${b.day||"—"}</td><td>${money(b.amt||0)}</td><td><button class="x" data-db="${i}">×</button></td></tr>`).join("")||'<tr><td class="sub">Aún no hay gastos.</td></tr>'}</table></div></div>`;
  return h}
 
-function render(){nav();$("#v").innerHTML={menu,shop,inv,bills}[S.tab]();save()}
+function rec(){
+ let h=`<div class="row"><button class="btn pri" data-xnew>＋ Nueva receta</button><span class="sub" style="margin:0">Las cantidades son por persona. Los cambios se reflejan en el menú y en la lista de compras.</span></div>`;
+ MEALS.forEach((m,mi)=>{const a=S.recipes.map((r,i)=>[r,i]).filter(([r])=>r.m==mi);if(!a.length)return;
+  h+=`<h2>${m}</h2>`+a.map(([r,i])=>`<div class="card"><div class="row"><input data-xn="${i}" value="${esc(r.n)}" style="flex:1;min-width:160px"><select data-xm="${i}">${MEALS.map((x,k)=>`<option value="${k}" ${r.m==k?"selected":""}>${x}</option>`).join("")}</select><button class="btn" data-xr="${i}">Eliminar</button></div>
+  <div class="scroll"><table><tr><th>Ingrediente</th><th>Cant./persona</th><th>Unidad</th><th>Categoría</th><th></th></tr>${r.i.map((g,j)=>`<tr><td><input data-xi="${i}:${j}:0" value="${esc(g[0])}"></td><td><input type="number" step="any" data-xi="${i}:${j}:1" value="${g[1]}" style="width:80px"></td><td><input data-xi="${i}:${j}:2" value="${esc(g[2])}" style="width:70px"></td><td><select data-xi="${i}:${j}:3">${CATS.map(c=>`<option ${g[3]==c?"selected":""}>${c}</option>`).join("")}</select></td><td><button class="x" data-xd="${i}:${j}">×</button></td></tr>`).join("")}</table></div><button class="btn" data-xa="${i}">＋ Ingrediente</button></div>`).join("")});
+ return h}
+
+function render(){nav();$("#v").innerHTML={menu,rec,shop,inv,bills}[S.tab]();save()}
 document.addEventListener("click",e=>{const t=e.target,d=t.dataset;
+ if(d.xnew!==undefined){let k=1;while(S.recipes.some(r=>r.n=="Nueva receta "+k))k++;S.recipes.push({n:"Nueva receta "+k,m:0,i:[["",1,"u","Despensa"]]});return render()}
+ if(d.xa){S.recipes[+d.xa].i.push(["",1,"u","Despensa"]);return render()}
+ if(d.xd){const[i,j]=d.xd.split(":").map(Number);S.recipes[i].i.splice(j,1);return render()}
+ if(d.xr){const i=+d.xr,r=S.recipes[i];if(!confirm("¿Eliminar “"+r.n+"”?"))return;Object.values(S.plan).forEach(c=>{if(c.r==r.n)c.r=""});S.recipes.splice(i,1);return render()}
  if(d.t){S.tab=d.t;return render()}
  if(d.clr!==undefined){S.chk={};return render()}
  if(d.di){S.inv.splice(+d.di,1);return render()}
@@ -127,8 +139,11 @@ document.addEventListener("click",e=>{const t=e.target,d=t.dataset;
  if(d.addi!==undefined){const n=$("#in").value.trim();if(!n)return;S.inv.push({name:n,cat:$("#ic").value,stock:+$("#is").value||0,min:+$("#im").value||0,unit:$("#iu").value.trim()});return render()}
  if(d.addb!==undefined){const n=$("#bn").value.trim();if(!n)return;S.bills.push({name:n,type:$("#bt").value,amt:+$("#ba").value||0,day:+$("#bd").value||0});return render()}
  if(d.addr!==undefined){const n=$("#rn").value.trim(),i=$("#ri").value.split("\n").map(l=>l.split(";").map(s=>s.trim())).filter(a=>a[0]).map(a=>[a[0],parseFloat(a[1])||1,a[2]||"u",CATS.includes(a[3])?a[3]:"Despensa"]);
-  if(!n||!i.length)return alert("Escribe el nombre y al menos un ingrediente.");S.mine.push({n,m:+$("#rm").value,i});return render()}});
+  if(!n||!i.length)return alert("Escribe el nombre y al menos un ingrediente.");if(S.recipes.some(r=>r.n==n))return alert("Ya existe una receta con ese nombre.");S.recipes.push({n,m:+$("#rm").value,i});return render()}});
 document.addEventListener("change",e=>{const t=e.target,d=t.dataset;
+ if(d.xn){const i=+d.xn,r=S.recipes[i],n=t.value.trim();if(!n||S.recipes.some((x,k)=>k!=i&&x.n==n)){alert("Ese nombre está vacío o ya existe.");return render()}Object.values(S.plan).forEach(c=>{if(c.r==r.n)c.r=n});r.n=n;return render()}
+ if(d.xm){const r=S.recipes[+d.xm];Object.values(S.plan).forEach(c=>{if(c.r==r.n)c.r=""});r.m=+t.value;return render()}
+ if(d.xi){const[i,j,f]=d.xi.split(":").map(Number);S.recipes[i].i[j][f]=f==1?(parseFloat(t.value)||0):(f==3?t.value:t.value.trim());return render()}
  if(d.def!==undefined){S.def=+t.value;return render()}
  if(d.wk!==undefined){S.weeks=+t.value;return render()}
  if(d.cell){const c=S.plan[d.cell]=S.plan[d.cell]||{r:"",p:S.def};c.r=t.value;return render()}
